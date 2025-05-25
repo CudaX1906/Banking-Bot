@@ -1,0 +1,76 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VS Code
+.vscode/
+
+# Pytest cache
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Pyre type checker
+.pyre/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.cache
+
+# Environments
+.env
+.env.*
+
+# Logs
+*.log
+
+# Databases
+*.sqlite3
+*.db
+
+# Local configuration
+*.local
+*.secret
+secrets.yml
+
+# Compiled files
+*.out
+*.o
+*.a
+*.pyc
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+OneDrive/
+
+# Test output
+.tox/
+.nox/
+nosetests.xml
+test-results/
+
+# Sphinx documentation
