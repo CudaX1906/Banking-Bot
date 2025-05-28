@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
-from langchain_core.messages import HumanMessage, AIMessage
-from app.db.models import Message, User,ChatSession
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from app.db.models import Message, User, ChatSession
 from app.db.database import get_db
 import asyncio
 from app.api.user import get_current_user
@@ -12,24 +12,38 @@ from app.schemas import SenderEnum
 from uuid import UUID
 from app.core.redis_client import redis_client
 from app.agent.graph import multi_agent_graph
-
+import json
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
-async def load_conversation_history(db: Session, user_id: UUID, session_id: UUID) -> list:
-    messages = (
-        db.query(Message)
-        .filter(Message.session_id == session_id)
-        .order_by(Message.timestamp)
-        .all()
-    )
+
+# Load conversation history from Redis (fallback logic can be added later if needed)
+async def load_conversation_history(user_id: UUID, session_id: UUID) -> list[BaseMessage]:
+    redis_key = f"chat:history:{user_id}:{session_id}"
+    history_json = await redis_client.get(redis_key)
+
     history = []
-    for msg in messages:
-        if msg.sender == SenderEnum.user:
-            history.append(HumanMessage(content=msg.content))
-        else:
-            history.append(AIMessage(content=msg.content))
+    if history_json:
+        history_data = json.loads(history_json)
+        for msg in history_data:
+            if msg["sender"] == "user":
+                history.append(HumanMessage(content=msg["content"]))
+            else:
+                history.append(AIMessage(content=msg["content"]))
     return history
+
+
+# Save full conversation history to Redis
+async def save_conversation_to_redis(user_id: UUID, session_id: UUID, history: list[BaseMessage]):
+    redis_key = f"chat:history:{user_id}:{session_id}"
+    history_data = []
+    for msg in history:
+        history_data.append({
+            "sender": "user" if isinstance(msg, HumanMessage) else "bot",
+            "content": msg.content,
+        })
+    await redis_client.set(redis_key, json.dumps(history_data))
+
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def chat_endpoint(
@@ -38,18 +52,20 @@ async def chat_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    
-    key = f"user:{current_user.user_id}:auth_token"
-    token = await redis_client.get(key)
-
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    conversation_history = await load_conversation_history(db, current_user.user_id, session.session_id)
+    # Get the user's token from Redis
+    key = f"user:{current_user.user_id}:auth_token"
+    token = await redis_client.get(key)
+
+    # Load conversation history from Redis
+    conversation_history = await load_conversation_history(current_user.user_id, session.session_id)
+
+    # Add user query to conversation history
     conversation_history.append(HumanMessage(content=query))
 
-    
-
+    # State object passed to agent
     state = {
         "messages": conversation_history,
         "is_authenticated": getattr(current_user, "is_authenticated", False),
@@ -59,17 +75,24 @@ async def chat_endpoint(
         "current_intent": None,
     }
 
-
+    # Invoke AI
     result = await multi_agent_graph.ainvoke(
         state,
-        config={"configurable": {"user_id": current_user.user_id, "session_id": str(session.session_id),"thread_id": "bankbot"}},
+        config={
+            "configurable": {
+                "user_id": current_user.user_id,
+                "session_id": str(session.session_id),
+                "thread_id": "bankbot"
+            }
+        },
     )
 
-
+    # Extract AI response from result
     ai_response = None
     if "messages" in result and len(result["messages"]) > len(conversation_history):
         ai_response = result["messages"][-1].content
 
+    # Save messages to database
     def save_messages():
         user_msg = Message(
             session_id=session.session_id,
@@ -97,6 +120,9 @@ async def chat_endpoint(
         return user_msg, ai_msg
 
     user_msg, ai_msg = await asyncio.to_thread(save_messages)
+
+    # Save updated conversation to Redis
+    await save_conversation_to_redis(current_user.user_id, session.session_id, result["messages"])
 
     return {
         "user_message_id": user_msg.message_id,

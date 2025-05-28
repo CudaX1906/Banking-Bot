@@ -11,6 +11,7 @@ async def create_account(name: str, currency: str, account_type: str, balance: f
     Create a new account for the current user.
     Requires: name, currency, account_type, initial balance, and authorization token.
     """
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{API_BASE_URL}/account/create",

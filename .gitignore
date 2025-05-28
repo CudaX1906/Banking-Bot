@@ -35,7 +35,7 @@ coverage.xml
 
 # Environments
 .env
-.env.*
+# .env.*
 
 # Logs
 *.log

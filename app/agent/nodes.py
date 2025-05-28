@@ -99,8 +99,7 @@ async def account_info_agent(state: OverallState) -> Command[Literal["auth_agent
     if (
         response.tool is None
         or response.tool not in tool_names
-        # or not response.missing
-        # or set(response.missing) - {"token"}
+        or set(response.missing) - {"token"}
     ):
         error_msg = AIMessage(content="Please try again. The info you provided is not sufficient to process your request.")
         updated_state = {
@@ -109,6 +108,7 @@ async def account_info_agent(state: OverallState) -> Command[Literal["auth_agent
         }
         return Command(goto="__end__", update=updated_state)
     
+     
 
 
     response.provided["token"] = state.get("auth_token")
@@ -158,8 +158,7 @@ async def transaction_agent(state: OverallState) -> Command[Literal["auth_agent"
     if (
         response.tool is None
         or response.tool not in tool_names
-        # or not response.missing
-        # or set(response.missing) - {"token"}
+        or set(response.missing) - {"token"}
     ):
         error_msg = AIMessage(content="Please try again. The info you provided is not sufficient to process your request.")
         updated_state = {
