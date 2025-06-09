@@ -18,7 +18,7 @@ import json
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-# Load conversation history from Redis (fallback logic can be added later if needed)
+
 async def load_conversation_history(user_id: UUID, session_id: UUID) -> list[BaseMessage]:
     redis_key = f"chat:history:{user_id}:{session_id}"
     history_json = await redis_client.get(redis_key)
@@ -34,7 +34,6 @@ async def load_conversation_history(user_id: UUID, session_id: UUID) -> list[Bas
     return history
 
 
-# Save full conversation history to Redis
 async def save_conversation_to_redis(user_id: UUID, session_id: UUID, history: list[BaseMessage]):
     redis_key = f"chat:history:{user_id}:{session_id}"
     history_data = []
@@ -57,15 +56,17 @@ async def chat_endpoint(
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+
     key = f"user:{current_user.user_id}:auth_token"
     token = await redis_client.get(key)
 
+
     conversation_history = await load_conversation_history(current_user.user_id, session.session_id)
 
-    
+
     conversation_history.append(HumanMessage(content=query))
 
-    
+
     state = {
         "messages": conversation_history,
         "is_authenticated": getattr(current_user, "is_authenticated", False),
@@ -75,7 +76,7 @@ async def chat_endpoint(
         "current_intent": None,
     }
 
-    
+
     result = await multi_agent_graph.ainvoke(
         state,
         config={
@@ -87,7 +88,7 @@ async def chat_endpoint(
         },
     )
 
-    
+
     ai_response = None
     if "messages" in result and len(result["messages"]) > len(conversation_history):
         ai_response = result["messages"][-1].content
@@ -121,7 +122,7 @@ async def chat_endpoint(
 
     user_msg, ai_msg = await asyncio.to_thread(save_messages)
 
-    # Save updated conversation to Redis
+
     await save_conversation_to_redis(current_user.user_id, session.session_id, result["messages"])
 
     return {
