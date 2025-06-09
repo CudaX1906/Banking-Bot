@@ -103,3 +103,6 @@ class FunctionCallPayload(BaseModel):
     tool: Optional[str] = Field(..., description="The name of the tool to call. Use 'none' if no tool is needed.")
     provided: Dict[str, Any] = Field(default_factory=dict, description="Arguments extracted from the user's message.")
     missing: List[str] = Field(default_factory=list, description="Required arguments not yet provided.")
+
+class ChatQuery(BaseModel):
+    query: str

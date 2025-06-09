@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from .utils import create_llm,format_conversation,extract_tool_schemas
 from app.schemas import FunctionCallPayload
 from app.shared import client
-from .prompts import TOOL_CALLING_PROMPT
+from .prompts import TOOL_CALLING_PROMPT,MISSING_INFO_PROMPT
 from app.agent.tools import (
     create_transaction_tool,create_account,get_account_info,update_account_info,delete_account,get_transaction_tool,list_transactions_by_account_tool)
 import json
@@ -101,7 +101,8 @@ async def account_info_agent(state: OverallState) -> Command[Literal["auth_agent
         or response.tool not in tool_names
         or set(response.missing) - {"token"}
     ):
-        error_msg = AIMessage(content="Please try again. The info you provided is not sufficient to process your request.")
+        missing_info_response = await llm.ainvoke(input=MISSING_INFO_PROMPT.format(missing_info_field=response.missing))
+        error_msg = AIMessage(content=missing_info_response.content)
         updated_state = {
             "messages": state["messages"] + [error_msg],
             "last_agent_response": error_msg.content,
@@ -160,7 +161,8 @@ async def transaction_agent(state: OverallState) -> Command[Literal["auth_agent"
         or response.tool not in tool_names
         or set(response.missing) - {"token"}
     ):
-        error_msg = AIMessage(content="Please try again. The info you provided is not sufficient to process your request.")
+        missing_info_response = await llm.ainvoke(input=MISSING_INFO_PROMPT.format(missing_info_field=response.missing))
+        error_msg = AIMessage(content=missing_info_response.content)
         updated_state = {
             "messages": state["messages"] + [error_msg],
         }

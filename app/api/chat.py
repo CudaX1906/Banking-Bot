@@ -8,7 +8,8 @@ from app.db.database import get_db
 import asyncio
 from app.api.user import get_current_user
 from app.api.sessions import get_current_session
-from app.schemas import SenderEnum
+from app.schemas import ChatQuery
+from app.db.schemas import SenderEnum
 from uuid import UUID
 from app.core.redis_client import redis_client
 from app.agent.graph import multi_agent_graph
@@ -47,25 +48,24 @@ async def save_conversation_to_redis(user_id: UUID, session_id: UUID, history: l
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def chat_endpoint(
-    query: str,
+    chat_query: ChatQuery,
     session: ChatSession = Depends(get_current_session),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+):  
+    query = chat_query.query
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    # Get the user's token from Redis
     key = f"user:{current_user.user_id}:auth_token"
     token = await redis_client.get(key)
 
-    # Load conversation history from Redis
     conversation_history = await load_conversation_history(current_user.user_id, session.session_id)
 
-    # Add user query to conversation history
+    
     conversation_history.append(HumanMessage(content=query))
 
-    # State object passed to agent
+    
     state = {
         "messages": conversation_history,
         "is_authenticated": getattr(current_user, "is_authenticated", False),
@@ -75,7 +75,7 @@ async def chat_endpoint(
         "current_intent": None,
     }
 
-    # Invoke AI
+    
     result = await multi_agent_graph.ainvoke(
         state,
         config={
@@ -87,12 +87,12 @@ async def chat_endpoint(
         },
     )
 
-    # Extract AI response from result
+    
     ai_response = None
     if "messages" in result and len(result["messages"]) > len(conversation_history):
         ai_response = result["messages"][-1].content
 
-    # Save messages to database
+    
     def save_messages():
         user_msg = Message(
             session_id=session.session_id,

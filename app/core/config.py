@@ -1,6 +1,8 @@
-from pydantic import  Field
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Config(BaseSettings):
     DATABASE_URL: str = Field(..., env="DATABASE_URL")
@@ -14,8 +16,9 @@ class Config(BaseSettings):
     ALGORITHM: str = Field("HS256", env="ALGORITHM")
     API_BASE_URL: str = Field("http://localhost:8000", env="API_BASE_URL")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 config = Config()

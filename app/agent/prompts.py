@@ -34,3 +34,6 @@ Respond ONLY in this exact JSON format with no additional text:
   "missing": ["<param_name_if_not_provided>", ...]
 }}
 """
+
+
+MISSING_INFO_PROMPT = "If the user's input is missing required information such as '{missing_info_field}', politely ask the user a clear, concise question to provide it. Do not proceed without this detail, and avoid assumptions."
